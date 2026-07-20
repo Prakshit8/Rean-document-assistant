@@ -289,7 +289,17 @@ def main():
     initialize_session_state()
 
     # ── Header ──────────────────────────────────────────
-    st.title("📚 DocuPilot AI")
+    col1, col2 = st.columns([1, 5])
+
+    with col1:
+        st.image("assets/logo.png", width=80)
+
+    with col2:
+        st.title("DocuPilot AI")
+        st.caption("Upload PDF documents and ask questions about them.")
+
+
+    
     st.markdown("Upload PDF documents and ask questions about them.")
     st.markdown("---")
 

@@ -1,8 +1,3 @@
-"""
-LLM Service Module
-Handles integration with Groq/OpenAI API for answer generation
-"""
-
 import os
 from typing import List, Dict, Any, Optional, Generator
 from dataclasses import dataclass
@@ -21,7 +16,6 @@ from utils import setup_logger, validate_api_key, calculate_token_count
 
 @dataclass
 class LLMConfig:
-    """Configuration for LLM service"""
     api_key: str
     model: str = "llama-3.1-8b-instant" 
     temperature: float = 0.1  
@@ -31,26 +25,14 @@ class LLMConfig:
 
 
 class LLMService:
-    """
-    Service for generating answers using LLM with retrieved context
-    
-    How RAG reduces hallucinations:
-    - Grounds answers in retrieved document chunks
-    - Provides explicit source citations
-    - Instructs model to only use provided context
-    - Low temperature reduces creative/incorrect responses
-    """
-    
     def __init__(self, config: LLMConfig):
         self.logger = setup_logger("llm_service")
         self.config = config
         self.client = None
         
-        # Validate API key (never log the actual key)
         if not validate_api_key(config.api_key):
             raise ValueError("Invalid API key provided")
         
-        # Initialize client based on provider
         if config.provider == "groq":
             if not GROQ_AVAILABLE:
                 raise ImportError("Groq library not installed. Install with: pip install groq")
@@ -67,33 +49,19 @@ class LLMService:
         context_chunks: List[Dict[str, Any]],
         conversation_history: List[Dict[str, str]] = None
     ) -> str:
-        """
-        Build prompt with retrieved context and conversation history
-        
-        Args:
-            query: User question
-            context_chunks: Retrieved document chunks
-            conversation_history: Previous conversation messages
-            
-        Returns:
-            Formatted prompt string
-        """
-        # Combine context chunks
-        context_text = "\n\n---\n\n".join([
+        context_text = "\n\n---\n\n".join([ 
             f"Source: {chunk['metadata'].get('source', 'Unknown')} (Page {chunk['metadata'].get('page', 'N/A')})\n{chunk['text']}"
             for chunk in context_chunks
         ])
         
-        # Build conversation history context
         history_context = ""
         if conversation_history:
             history_context = "\n\nPrevious conversation:\n"
-            for msg in conversation_history[-3:]:  # Last 3 messages
+            for msg in conversation_history[-3:]:
                 role = msg.get('role', 'user')
                 content = msg.get('content', '')
                 history_context += f"{role.capitalize()}: {content}\n"
         
-        # Build main prompt
         prompt = f"""You are an intelligent document assistant. Answer questions based ONLY on the provided context from documents.
 
 Context from documents:
@@ -122,27 +90,12 @@ Answer:"""
         conversation_history: List[Dict[str, str]] = None,
         max_retries: int = 3
     ) -> Dict[str, Any]:
-        """
-        Generate answer using LLM with retrieved context
-        
-        Args:
-            query: User question
-            context_chunks: Retrieved document chunks
-            conversation_history: Previous conversation messages
-            max_retries: Maximum number of retry attempts for API failures
-            
-        Returns:
-            Dictionary with answer and metadata
-        """
         self.logger.info(f"Generating answer for query: {query[:50]}...")
         
-        # Build prompt
         prompt = self._build_prompt(query, context_chunks, conversation_history)
         
-        # Retry logic with exponential backoff
         for attempt in range(max_retries):
             try:
-                # Generate response
                 response = self.client.chat.completions.create(
                     model=self.config.model,
                     messages=[
@@ -155,7 +108,6 @@ Answer:"""
                 
                 answer = response.choices[0].message.content
                 
-                # Calculate token usage
                 prompt_tokens = calculate_token_count(prompt)
                 completion_tokens = calculate_token_count(answer)
                 
@@ -175,10 +127,9 @@ Answer:"""
                 error_msg = str(e)
                 self.logger.warning(f"Attempt {attempt + 1}/{max_retries} failed: {error_msg[:100]}...")
                 
-                # Check if it's a temporary API error
                 if "resource_exhausted" in error_msg or "unavailable" in error_msg:
                     if attempt < max_retries - 1:
-                        wait_time = min(2 ** attempt, 10)  # Cap at 10 seconds
+                        wait_time = min(2 ** attempt, 10)
                         self.logger.info(f"API overloaded. Retrying in {wait_time} seconds...")
                         time.sleep(wait_time)
                     else:
@@ -199,24 +150,11 @@ Answer:"""
         context_chunks: List[Dict[str, Any]],
         conversation_history: List[Dict[str, str]] = None
     ) -> Generator[str, None, None]:
-        """
-        Generate streaming answer using LLM
-        
-        Args:
-            query: User question
-            context_chunks: Retrieved document chunks
-            conversation_history: Previous conversation messages
-            
-        Yields:
-            Streaming text chunks
-        """
         self.logger.info(f"Generating streaming answer for query: {query[:50]}...")
         
-        # Build prompt
         prompt = self._build_prompt(query, context_chunks, conversation_history)
         
         try:
-            # Generate streaming response
             stream = self.client.chat.completions.create(
                 model=self.config.model,
                 messages=[
@@ -246,20 +184,8 @@ Answer:"""
         results: List[Dict[str, Any]],
         top_k: int = 5
     ) -> List[Dict[str, Any]]:
-        """
-        Re-rank search results using LLM for better relevance
-        
-        Args:
-            query: User query
-            results: Initial search results
-            top_k: Number of top results to return
-            
-        Returns:
-            Re-ranked results
-        """
         self.logger.info(f"Re-ranking {len(results)} results")
         
-        # Build re-ranking prompt
         results_text = "\n\n".join([
             f"Result {i+1}: {result['text'][:200]}..."
             for i, result in enumerate(results)
@@ -281,11 +207,9 @@ Return only the ranking numbers in order, separated by commas."""
                 max_tokens=100
             )
             
-            # Parse ranking
             ranking_str = response.choices[0].message.content.strip()
             rankings = [int(x.strip()) for x in ranking_str.split(',')]
             
-            # Re-rank results
             ranked_results = [results[i-1] for i in rankings]
             
             self.logger.info(f"Re-ranking complete, returning top {top_k}")
@@ -293,5 +217,4 @@ Return only the ranking numbers in order, separated by commas."""
             
         except Exception as e:
             self.logger.error(f"Error in re-ranking: {e}")
-            # Return original results if re-ranking fails
             return results[:top_k]

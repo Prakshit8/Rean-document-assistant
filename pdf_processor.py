@@ -1,8 +1,3 @@
-"""
-PDF Processor Module
-Handles PDF text extraction, document processing, and chunking
-"""
-
 import PyPDF2
 from typing import List, Dict, Any, Tuple
 import logging
@@ -14,38 +9,19 @@ from utils import setup_logger, generate_document_id, clean_text, get_timestamp,
 
 
 class PDFProcessor:
-    """
-    Process PDF documents: extract text, split into chunks, and prepare for embedding
-    """
-    
     def __init__(
         self,
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
         separators: List[str] = None
     ):
-        """
-        Initialize PDF processor with chunking parameters
-        
-        Args:
-            chunk_size: Maximum size of each chunk in characters
-            chunk_overlap: Number of characters to overlap between chunks
-            separators: List of separators for splitting (default: paragraph, sentence, word)
-        """
         self.logger = setup_logger("pdf_processor")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         
-        # Default separators: paragraph, sentence, word, character
         if separators is None:
             separators = ["\n\n", "\n", ". ", " ", ""]
         
-        # Initialize RecursiveCharacterTextSplitter
-        # Why RecursiveCharacterTextSplitter?
-        # - It tries to split on larger separators first (paragraphs)
-        # - Falls back to smaller separators (sentences, words) if needed
-        # - Preserves semantic meaning better than fixed-size splitting
-        # - Reduces chance of cutting sentences in the middle
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
@@ -56,26 +32,15 @@ class PDFProcessor:
         self.logger.info(f"PDFProcessor initialized with chunk_size={chunk_size}, overlap={chunk_overlap}")
     
     def extract_text_from_pdf(self, pdf_path: str) -> Tuple[str, Dict[str, Any]]:
-        """
-        Extract all text from a PDF file
-        
-        Args:
-            pdf_path: Path to PDF file
-            
-        Returns:
-            Tuple of (extracted_text, metadata)
-        """
         self.logger.info(f"Extracting text from: {pdf_path}")
         
         try:
             with open(pdf_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 
-                # Get PDF metadata
                 num_pages = len(pdf_reader.pages)
                 pdf_info = pdf_reader.metadata or {}
                 
-                # Extract text from all pages
                 text_content = []
                 for page_num, page in enumerate(pdf_reader.pages, start=1):
                     page_text = page.extract_text()
@@ -85,7 +50,6 @@ class PDFProcessor:
                 full_text = "\n\n".join(text_content)
                 full_text = clean_text(full_text)
                 
-                # Create metadata
                 metadata = {
                     "source": Path(pdf_path).name,
                     "file_path": pdf_path,
@@ -111,22 +75,10 @@ class PDFProcessor:
         text: str,
         metadata: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """
-        Split text into semantic chunks with metadata
-        
-        Args:
-            text: Full text to split
-            metadata: Document metadata to attach to each chunk
-            
-        Returns:
-            List of chunks with metadata
-        """
         self.logger.info(f"Splitting text into chunks (chunk_size={self.chunk_size})")
         
-        # Split text using RecursiveCharacterTextSplitter
         chunks = self.text_splitter.split_text(text)
         
-        # Create chunk objects with metadata
         chunk_objects = []
         for idx, chunk_text in enumerate(chunks):
             chunk_metadata = merge_metadata(metadata, {
@@ -144,35 +96,15 @@ class PDFProcessor:
         return chunk_objects
     
     def process_pdf(self, pdf_path: str) -> List[Dict[str, Any]]:
-        """
-        Complete pipeline: extract text and split into chunks
-        
-        Args:
-            pdf_path: Path to PDF file
-            
-        Returns:
-            List of chunks with metadata
-        """
         self.logger.info(f"Processing PDF: {pdf_path}")
         
-        # Extract text
         text, metadata = self.extract_text_from_pdf(pdf_path)
         
-        # Split into chunks
         chunks = self.split_text_into_chunks(text, metadata)
         
         return chunks
     
     def process_multiple_pdfs(self, pdf_paths: List[str]) -> List[Dict[str, Any]]:
-        """
-        Process multiple PDF files and combine all chunks
-        
-        Args:
-            pdf_paths: List of PDF file paths
-            
-        Returns:
-            List of all chunks from all PDFs
-        """
         self.logger.info(f"Processing {len(pdf_paths)} PDF files")
         
         all_chunks = []
@@ -188,22 +120,11 @@ class PDFProcessor:
         return all_chunks
     
     def get_document_stats(self, chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Get statistics about processed documents
-        
-        Args:
-            chunks: List of processed chunks
-            
-        Returns:
-            Statistics dictionary
-        """
         if not chunks:
             return {"total_chunks": 0, "total_documents": 0}
         
-        # Count unique documents
         document_ids = set(chunk["metadata"].get("document_id") for chunk in chunks)
         
-        # Calculate chunk sizes
         chunk_sizes = [len(chunk["text"]) for chunk in chunks]
         
         stats = {
