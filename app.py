@@ -143,7 +143,7 @@ def get_config():
         return {
             "api_key": st.secrets.get("GROQ_API_KEY", ""),
             "llm_provider": st.secrets.get("LLM_PROVIDER", "groq"),
-            "llm_model": st.secrets.get("LLM_MODEL", "llama-3.1-8b-instant"),
+            "llm_model": st.secrets.get("LLM_MODEL", "openai/gpt-oss-120b"),
             "chunk_size": st.secrets.get("CHUNK_SIZE", 1000),
             "chunk_overlap": st.secrets.get("CHUNK_OVERLAP", 200)
         }

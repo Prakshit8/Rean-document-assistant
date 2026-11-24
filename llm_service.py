@@ -17,7 +17,7 @@ from utils import setup_logger, validate_api_key, calculate_token_count
 @dataclass
 class LLMConfig:
     api_key: str
-    model: str = "llama-3.1-8b-instant" 
+    model: str = "openai/gpt-oss-120b"
     temperature: float = 0.1  
     max_tokens: int = 1024
     provider: str = "groq"  

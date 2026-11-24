@@ -125,7 +125,7 @@ For Groq:
 ```toml
 GROQ_API_KEY = "your_groq_api_key"
 LLM_PROVIDER = "groq"
-LLM_MODEL = "llama-3.1-8b-instant"
+LLM_MODEL = "openai/gpt-oss-120b"
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 ```
